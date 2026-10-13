@@ -1,0 +1,6 @@
+api/generated
+api/.agents
+api/.env
+api/.claude
+api/.cursor
+api/.devin
