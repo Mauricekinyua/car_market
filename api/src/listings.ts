@@ -71,7 +71,53 @@ listings.get('/', async(req,res)=>{
     res.json({items, total, page:f.page, pages:Math.ceil(total /f.limit)});
 });
 
+listings.get('/:id', async (res,req)=>{
+    const item = await prisma.listing.findUnique({
+        where: {id:req.params.id},
+        include:{
+            images: {orderBy: {position: 'asc'}},
+            seller: {select: {id:true,name:true,phone:true}},
+        },
+    });
+        if(!item) return res.status(404).json({error: 'not found'});
+        res.json(item);
+});
 
+listings.post('/', requireAuth, async(req: AuthRequest, res)=>{
+    const p = createSchema.safeParse(req.body);
+    if(!p.success) return res.status(400).json(p.error.flatten());
+
+    const{ images, ...data} = p.data;
+    const item = await prisma.listing.create({
+        data:{
+            ...data,
+            sellerId: req.userId!,
+            images: {create: images.map((url, position)=>({
+                url,position
+                }))},
+        },
+    });
+    res.status(201).json(item);
+});
+
+listings.patch('/:id/status', requireAuth, async(req: AuthRequest, res)=>{
+    const status = z.enum(['ACTIVE','SOLD','HIDDEN']).safeParse(req.body?.status);
+    if(!status.success) return res.status(400).json({error:'invalid status'});
+    const result = await prisma.listing.updateMany({
+        where:{ id:req.params.id, sellerId:req.userId!},
+        data: {status: status.data},
+    });
+    if(result.count === 0) return res.status(404).json({error: 'not found'});
+    res.json({ok: true });
+});
+
+listings.delete('/:id', requireAuth, async(req:AuthRequest, res)=>{
+    const result = await prisma.listing.deleteMany({
+        where: {id: req.params.id, sellerId: req.userId!},
+    });
+    if(result.count === 0) return res.status(404).json({error: 'not found'});
+    res.status(204).end();
+});
 
 
 
