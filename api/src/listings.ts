@@ -1,9 +1,14 @@
 import {Router} from "express";
 import {z} from "zod";
 import {prisma} from './db';
-import {requireAuth, AuthRequest} from './middleware/auth';
+import {requireAuth } from './auth';
 
 export const listings = Router();
+declare global{
+    namespace Express{
+        interface Request {userId?: string}
+    }
+}
 
 const createSchema = z.object({
     title: z.string().min(3).max(120),
@@ -83,7 +88,7 @@ listings.get('/:id', async (res,req)=>{
         res.json(item);
 });
 
-listings.post('/', requireAuth, async(req: AuthRequest, res)=>{
+listings.post('/', requireAuth, async(req, res)=>{
     const p = createSchema.safeParse(req.body);
     if(!p.success) return res.status(400).json(p.error.flatten());
 
@@ -100,7 +105,7 @@ listings.post('/', requireAuth, async(req: AuthRequest, res)=>{
     res.status(201).json(item);
 });
 
-listings.patch('/:id/status', requireAuth, async(req: AuthRequest, res)=>{
+listings.patch('/:id/status', requireAuth, async(req, res)=>{
     const status = z.enum(['ACTIVE','SOLD','HIDDEN']).safeParse(req.body?.status);
     if(!status.success) return res.status(400).json({error:'invalid status'});
     const result = await prisma.listing.updateMany({
@@ -111,7 +116,7 @@ listings.patch('/:id/status', requireAuth, async(req: AuthRequest, res)=>{
     res.json({ok: true });
 });
 
-listings.delete('/:id', requireAuth, async(req:AuthRequest, res)=>{
+listings.delete('/:id', requireAuth, async(req, res)=>{
     const result = await prisma.listing.deleteMany({
         where: {id: req.params.id, sellerId: req.userId!},
     });
